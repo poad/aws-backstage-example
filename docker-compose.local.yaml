@@ -1,0 +1,31 @@
+version: '4'
+
+services:
+  postgres:
+    image: postgres:17.0-bookworm
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: backstage
+    ports:
+      - 5432:5432
+    expose:
+      - 5432
+    hostname: postgres
+
+  backstage:
+    build:
+      context: backstage
+      dockerfile: packages/backend/Dockerfile
+    environment:
+      POSTGRES_HOST: postgres
+      port: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: backstage
+    ports:
+      # - 3000:3000
+      - 7007:7007
+    expose:
+      # - 3000
+      - 7007
+    depends_on:
+      - postgres
