@@ -1,5 +1,4 @@
 name: Build and Test
-
 on:
   pull_request:
     branches:
@@ -16,6 +15,25 @@ jobs:
       matrix:
         node-version: [22.x]
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
     - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        check-latest: true
+
+    - uses: pnpm/action-setup@v4
+      name: Install pnpm
+      with:
+        package_json_file: infra/package.json
+        run_install: |
+          - recursive: true
+            cwd: infra
+            args: [--no-frozen-lockfile]
+
+    - name: Build
+      working-directory: infra
+      run: pnpm lint && pnpm build

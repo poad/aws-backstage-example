@@ -8,3 +8,7 @@ To start the app, run:
 yarn install
 yarn dev
 ```
+
+## Update
+
+See <https://backstage.io/docs/getting-started/keeping-backstage-updated/>

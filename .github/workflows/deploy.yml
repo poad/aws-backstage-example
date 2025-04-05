@@ -1,14 +1,16 @@
 name: Deploy
 
 on:
-  pull_request:
-    branches:
-      - main
   push:
     branches:
-    - main
+      - main
 
   workflow_dispatch:
+
+env:
+  OIDC_IAM_ROLE_ARN: ${{ secrets.OIDC_IAM_ROLE_ARN }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_REGION: us-west-2
 
 permissions:
   id-token: write
@@ -25,6 +27,76 @@ jobs:
       matrix:
         node-version: [22.x]
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ env.OIDC_IAM_ROLE_ARN }}
+        role-session-name: GitHubActions
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        check-latest: true
+
+    - uses: pnpm/action-setup@v4
+      name: Install pnpm
+      with:
+        package_json_file: infra/package.json
+        run_install: |
+          - recursive: true
+            cwd: infra
+            args: [--no-frozen-lockfile]
+          - args: [--global, aws-cdk, esbuild]
+
+    - name: deploy
+      working-directory: ./infra
+      run: npx cdk deploy --require-approval=never -c account=$AWS_ACCOUNT_ID -c region=$AWS_REGION --all
+      
+    - uses: aws-actions/amazon-ecr-login@v2
+      id: login-ecr
+  
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        platforms: linux/arm64
+
+    - name: configure ECR tag
+      id: config-ecr-tag
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: backstage-example
+        IMAGE_TAG: latest
+      run: |
+        echo "ecr-tag=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+    - name: Build image to Amazon ECR
+      uses: docker/build-push-action@v6
+      with:
+        push: false
+        tags: ${{ steps.config-ecr-tag.outputs.ecr-tag }}
+        context: backstage
+        file: backstage/packages/backend/Dockerfile
+        platforms: linux/arm64
+        load: true
+        pull: true
+        cache-from: type=gha,scope=app-cache
+        cache-to: type=gha,scope=app-cache,mode=max
+
+    - name: Push image to Amazon ECR
+      id: build-image
+      env:
+        IMAGE_TAG: ${{ steps.config-ecr-tag.outputs.ecr-tag }}
+      run: |
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed to ECS.
+        docker push "$IMAGE_TAG"
