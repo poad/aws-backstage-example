@@ -1,0 +1,21 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+    - main
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4

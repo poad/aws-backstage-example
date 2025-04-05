@@ -1,0 +1,30 @@
+name: Deploy
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+    - main
+
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# 同時実行すると CREATE_IN_PROGRESS や UPDATE_IN_PROGRESS 状態で cdk deploy を行う可能性があるため抑止する
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}-cloudformation"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
