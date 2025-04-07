@@ -1,20 +1,62 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import { InfraStack } from '../lib/base-stack';
+import { BaseStack } from '../lib/base-stack';
+import { AlbStack } from '../lib/alb-stack';
+import { EcsStack } from '../lib/ecs-stack';
+import { RdsStack } from '../lib/rds-stack';
 
 const app = new cdk.App();
-const base = new InfraStack(app, 'aws-backstage-example-stack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
+const region = app.node.tryGetContext('region') ?? (process.env.AWS_REGION ?? 'us-west-2');
+const account = app.node.tryGetContext('account');
 
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const base = new BaseStack(app, 'aws-backstage-example-base-stack', {
+  env: {
+    region,
+    account,
+  },
+});
 
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
+const alb = new AlbStack(app, 'aws-backstage-example-alb-stack', {
+  env: {
+    region,
+    account,
+  },
+  vpc: base.vpc,
+  lbSg: base.lbSg,
+  ecsSg: base.ecsSg,
+  ecsApplicationPort: base.ecsApplicationPort,
+});
+alb.addDependency(base);
 
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+const rds = new RdsStack(app, 'aws-backstage-example-rds-stack', {
+  env: {
+    region,
+    account,
+  },
+  vpc: base.vpc,
+  dbSg: base.dbSg,
+});
+rds.addDependency(base);
+
+const ecs = new EcsStack(app, 'aws-backstage-example-ecs-stack', {
+  env: {
+    region,
+    account,
+  },
+  vpc: base.vpc,
+  targetGroup: alb.targetGroup,
+  dnsName: alb.dnsName,
+  ecsSg: base.ecsSg,
+  ecsApplicationPort: base.ecsApplicationPort,
+  ecsHealthCheckConfig: base.ecsHealthCheckConfig,
+  ecr: base.ecr,
+  secret: rds.secret,
+
+});
+ecs.addDependency(rds);
+
+const stacks = [base, alb, ecs, rds];
+stacks.forEach((stack) => {
+  cdk.Tags.of(stack).add('SubSystem', 'backstage-example');
+  cdk.RemovalPolicies.of(stack).destroy();
 });
