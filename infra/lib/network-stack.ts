@@ -2,8 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import assert from 'assert';
 
-export class BaseStack extends cdk.Stack {
-  public readonly ecr: cdk.aws_ecr.Repository;
+export class NetworkStack extends cdk.Stack {
   public readonly vpc: cdk.aws_ec2.IVpc;
   public readonly lbSg: cdk.aws_ec2.ISecurityGroup;
   public readonly ecsSg: cdk.aws_ec2.ISecurityGroup;
@@ -17,9 +16,6 @@ export class BaseStack extends cdk.Stack {
     const appName = this.node.tryGetContext('appName');
     assert(appName, '');
 
-    const ecrConfig = this.node.tryGetContext('ecr');
-    const repositoryName = ecrConfig?.repositoryName ?? appName;
-
     const ecsConfig = this.node.tryGetContext('ecs');
     assert(ecsConfig?.applicationPort, '');
     this.ecsApplicationPort = Number.parseInt(ecsConfig.applicationPort);
@@ -28,18 +24,6 @@ export class BaseStack extends cdk.Stack {
     const rdbPortString = this.node.tryGetContext('rdbPort');
     assert(rdbPortString, '');
     const rdbPort = Number.parseInt(rdbPortString);
-
-    this.ecr = new cdk.aws_ecr.Repository(this, 'Repository', {
-      repositoryName,
-      lifecycleRules: [
-        {
-          tagStatus: cdk.aws_ecr.TagStatus.TAGGED,
-          tagPatternList: ['latest'],
-          maxImageCount: 1,
-          rulePriority: 1,
-        },
-      ],
-    });
 
     const vpc = cdk.aws_ec2.Vpc.fromLookup(this, 'VPC', {
       vpcName: 'vpc',
