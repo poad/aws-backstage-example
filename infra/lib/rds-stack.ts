@@ -27,7 +27,7 @@ export class RdsStack extends cdk.Stack {
     const subnetGroup = new rds.SubnetGroup(this, 'SubnetGroup', {
       vpc,
       subnetGroupName: `${appName}-subnet-group`,
-      description: 'for Mastra PgVector',
+      description: 'for PostgraSQL',
       vpcSubnets: {
         subnetType: usePrivateSubnet ? ec2.SubnetType.PRIVATE_ISOLATED : ec2.SubnetType.PUBLIC,
       },

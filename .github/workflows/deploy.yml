@@ -56,7 +56,7 @@ jobs:
 
     - name: deploy
       working-directory: ./infra
-      run: npx cdk deploy --require-approval=never -c account=$AWS_ACCOUNT_ID -c region=$AWS_REGION --all
+      run: npx cdk deploy --require-approval=never -c account=$AWS_ACCOUNT_ID -c region=$AWS_REGION aws-backstage-example-ecr-stack
       
     - uses: aws-actions/amazon-ecr-login@v2
       id: login-ecr
